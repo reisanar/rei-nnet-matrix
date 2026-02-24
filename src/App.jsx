@@ -620,7 +620,7 @@ function NetworkSVG({ layers, selectedLayer, onSelect }) {
   };
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+    <svg width="100%" height="220" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block" }}>
       <defs>
         {layers.map((_, li) => (
           <filter key={li} id={`glow${li}`}>
@@ -808,9 +808,10 @@ export default function App() {
 
   return (
     <KatexCtx.Provider value={katexLoaded}>
-      <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: "#07101c", color: "#e2e8f0", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: "#07101c", color: "#e2e8f0", height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+          html, body, #root { height: 100%; margin: 0; overflow: hidden; }
           * { box-sizing: border-box; }
           ::-webkit-scrollbar { width: 4px; height: 4px; }
           ::-webkit-scrollbar-track { background: #0a1525; }
@@ -858,10 +859,10 @@ export default function App() {
         </div>
 
         {/* ── Body ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", flex: 1, overflow: "hidden", height: "calc(100vh - 57px)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", width: "100%", flex: 1, overflow: "hidden", height: "calc(100vh - 57px)" }}>
 
           {/* Left: config */}
-          <div style={{ background: "#0a1525", borderRight: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", padding: 14 }}>
+          <div style={{ minWidth: 0, background: "#0a1525", borderRight: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", padding: 14 }}>
             <div style={secLabel}>Architecture</div>
 
             {layers.map((layer, li) => (
@@ -910,7 +911,7 @@ export default function App() {
           </div>
 
           {/* Right: graph + math */}
-          <div style={{ display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
+          <div style={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
 
             {/* SVG graph */}
             <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.13)" }}>
