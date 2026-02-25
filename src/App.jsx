@@ -204,37 +204,94 @@ function Callout({ icon, color, title, children }) {
 // ─── Weight matrix grid ───────────────────────────────────────────────────────
 function WeightMatrix({ nin, nout, layerIdx }) {
   const VR = Math.min(nout, 5), VC = Math.min(nin, 5);
+  const truncated = nin > 5 || nout > 5;
+  const [tooltip, setTooltip] = useState(null); // { x, y, label }
+
   return (
-    <div>
+    <div style={{ position: "relative" }}>
       <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", fontFamily: "monospace", marginBottom: 6 }}>
         Illustrative entries of <T tex={`W^{(${layerIdx})} \\in \\mathbb{R}^{${nout}\\times${nin}}`} />
       </div>
-      <div style={{ display: "inline-block", background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+
+      {/* Grid */}
+      <div style={{ display: "inline-block", background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,0.05)", position: "relative" }}>
         {Array.from({ length: VR }, (_, r) => (
           <div key={r} style={{ display: "flex", gap: 3, marginBottom: r < VR - 1 ? 3 : 0 }}>
             {Array.from({ length: VC }, (_, c) => {
               const v = seedVal(layerIdx, r, c);
               const a = 0.08 + Math.abs(v) * 0.26;
+              const label = `W[${r+1},${c+1}] = ${v} — weight from neuron ${c+1} (layer ${layerIdx-1}) to neuron ${r+1} (layer ${layerIdx})`;
               return (
                 <div key={c}
-                  title={`W[${r+1},${c+1}]: weight from neuron ${c+1} (layer ${layerIdx-1}) to neuron ${r+1} (layer ${layerIdx})`}
+                  onMouseEnter={e => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const parentRect = e.currentTarget.closest("[data-matrix-root]").getBoundingClientRect();
+                    setTooltip({ x: rect.left - parentRect.left + rect.width / 2, y: rect.top - parentRect.top, label });
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
                   style={{
                     width: 40, height: 26, borderRadius: 4,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 9, fontFamily: "monospace", cursor: "help",
+                    fontSize: 9, fontFamily: "monospace", cursor: "crosshair",
                     background: `rgba(99,102,241,${a})`,
                     color: `rgba(180,190,255,${0.35 + Math.abs(v) * 0.55})`,
                     border: "1px solid rgba(99,102,241,0.13)",
-                  }}>{v}</div>
+                    transition: "filter 0.1s",
+                    filter: "brightness(1)",
+                  }}
+                  onMouseOver={e => e.currentTarget.style.filter = "brightness(1.5)"}
+                  onMouseOut={e => { e.currentTarget.style.filter = "brightness(1)"; }}
+                >{v}</div>
               );
             })}
-            {nin > 5 && <div style={{ width: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "rgba(255,255,255,0.18)" }}>&#8943;</div>}
+            {nin > 5 && (
+              <div style={{ width: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "rgba(255,255,255,0.18)" }}>&#8943;</div>
+            )}
           </div>
         ))}
-        {nout > 5 && <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.18)", marginTop: 3 }}>&#8942;</div>}
+        {nout > 5 && (
+          <div style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.18)", marginTop: 3 }}>&#8942;</div>
+        )}
       </div>
+
+      {/* Invisible overlay for tooltip positioning */}
+      <div data-matrix-root style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        {tooltip && (
+          <div style={{
+            position: "absolute",
+            left: tooltip.x,
+            top: tooltip.y - 8,
+            transform: "translate(-50%, -100%)",
+            background: "#0d1827",
+            border: "1px solid rgba(99,102,241,0.5)",
+            borderRadius: 7,
+            padding: "6px 10px",
+            fontSize: 11,
+            color: "rgba(255,255,255,0.85)",
+            fontFamily: "monospace",
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+            pointerEvents: "none",
+            zIndex: 10,
+          }}>
+            {tooltip.label}
+            <div style={{
+              position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)",
+              width: 8, height: 8, background: "#0d1827",
+              border: "1px solid rgba(99,102,241,0.5)",
+              borderTop: "none", borderLeft: "none",
+              transform: "translateX(-50%) rotate(45deg)",
+            }} />
+          </div>
+        )}
+      </div>
+
+      {/* Footer — only shown when truncated */}
       <div style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", fontFamily: "monospace", marginTop: 5 }}>
-        Hover a cell for its meaning. Showing {VR}&times;{VC} of {nout}&times;{nin}.
+        {truncated
+          ? <>Showing {VR}&times;{VC} of {nout}&times;{nin} entries &mdash; hover a cell to inspect</>
+          : <>Hover a cell to inspect its value and connections</>
+        }
       </div>
     </div>
   );
@@ -245,6 +302,9 @@ function TransformCard({ fromLayer, toLayer, layerIdx, isLast, startOpen }) {
   const [open, setOpen]       = useState(startOpen);
   const [showMat, setShowMat] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
+
+  // Re-open when the parent selects this layer in the SVG graph
+  useEffect(() => { if (startOpen) setOpen(true); }, [startOpen]);
 
   const ac    = toLayer.activation;
   const color = ACT[ac]?.color ?? "#94a3b8";
@@ -881,42 +941,46 @@ export default function App() {
               />
             ))}
 
-            {/* Summary */}
-            <div style={{ marginTop: 14, background: "rgba(0,0,0,0.28)", borderRadius: 10, padding: "13px 14px", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <div style={secLabel}>Summary</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+          </div>
+
+          {/* Right: graph + math */}
+          <div style={{ minWidth: 0, display: "grid", gridTemplateRows: "auto auto 1fr", overflow: "hidden" }}>
+
+            {/* SVG graph */}
+            <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.13)" }}>
+              <div style={secLabel}>Network Graph &middot; click a layer to inspect</div>
+              <NetworkSVG layers={layers} selectedLayer={sel} onSelect={setSel} />
+            </div>
+
+            {/* ── Summary + Function Composition strip ── */}
+            <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.18)", padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+              {/* Row 1: stat tiles + explainer button */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 {[
                   { label: "Layers",  val: n,           color: "#6366f1" },
                   { label: "Weights", val: totalW,      color: "#818cf8" },
                   { label: "Biases",  val: totalB,      color: "#a78bfa" },
                   { label: "Classes", val: outputNodes, color: "#34d399" },
                 ].map(({ label, val, color }) => (
-                  <div key={label} style={{ textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 4px" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color, fontFamily: "monospace" }}>{val}</div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginTop: 2 }}>{label}</div>
+                  <div key={label} style={{ textAlign: "center", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8, padding: "6px 14px" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color, fontFamily: "monospace", lineHeight: 1 }}>{val}</div>
+                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginTop: 3 }}>{label}</div>
                   </div>
                 ))}
+                <button onClick={() => setExplainer(true)}
+                  style={{ flexShrink: 0, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", color: "#818cf8", borderRadius: 7, padding: "6px 13px", cursor: "pointer", fontSize: 11, fontFamily: "monospace", whiteSpace: "nowrap" }}>
+                  how are these computed? &#8594;
+                </button>
               </div>
-              <button onClick={() => setExplainer(true)}
-                style={{ width: "100%", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", color: "#818cf8", borderRadius: 7, padding: "7px 0", cursor: "pointer", fontSize: 11, fontFamily: "monospace" }}>
-                how are these computed? &#8594;
-              </button>
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={secLabel}>Function composition</div>
-                <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "12px 14px", overflowX: "auto" }}>
+
+              {/* Row 2: function composition — full width, wraps naturally */}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.22)", flexShrink: 0 }}>Composition</span>
+                <div style={{ flex: 1, minWidth: 0, background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "8px 14px", overflowX: "auto" }}>
                   <T d tex={compTex} />
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Right: graph + math */}
-          <div style={{ minWidth: 0, display: "grid", gridTemplateRows: "auto 1fr", overflow: "hidden" }}>
-
-            {/* SVG graph */}
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.13)" }}>
-              <div style={secLabel}>Network Graph &middot; click a layer to inspect</div>
-              <NetworkSVG layers={layers} selectedLayer={sel} onSelect={setSel} />
             </div>
 
             {/* Transform cards + loss */}
